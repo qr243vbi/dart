@@ -28,15 +28,21 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Release tag: $TAG"
 
-      - name: Install depot_tools
+      - name: Install and initialize depot_tools
         shell: bash
         run: |
           git clone --depth 1 \
             https://chromium.googlesource.com/chromium/tools/depot_tools.git \
             "$RUNNER_TEMP/depot_tools"
-
           echo "$RUNNER_TEMP/depot_tools" >> "$GITHUB_PATH"
+          if [ -f "$RUNNER_TEMP/depot_tools/update_depot_tools" ]; then
+            python3 "$RUNNER_TEMP/depot_tools/update_depot_tools" || true
+          elif [ -f "$RUNNER_TEMP/depot_tools/ensure_bootstrap.py" ]; then
+            python3 "$RUNNER_TEMP/depot_tools/ensure_bootstrap.py" || true
+          fi
           echo "DEPOT_TOOLS_UPDATE=0" >> "$GITHUB_ENV"
+          which gclient || true
+          gclient --version || true
 
       - name: Fetch Dart source
         shell: bash
