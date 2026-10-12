@@ -14,12 +14,6 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      - name: Check out repository for tagging
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: true
-
       - name: Generate release tag
         id: release
         shell: bash
@@ -28,34 +22,28 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Release tag: $TAG"
 
-      - name: Install and initialize depot_tools
+      - name: Install depot_tools
         shell: bash
         run: |
-          git clone --depth 1 \
+          git clone \
             https://chromium.googlesource.com/chromium/tools/depot_tools.git \
             "$RUNNER_TEMP/depot_tools"
+
           echo "$RUNNER_TEMP/depot_tools" >> "$GITHUB_PATH"
-          if [ -f "$RUNNER_TEMP/depot_tools/update_depot_tools" ]; then
-            python3 "$RUNNER_TEMP/depot_tools/update_depot_tools" || true
-          elif [ -f "$RUNNER_TEMP/depot_tools/ensure_bootstrap.py" ]; then
-            python3 "$RUNNER_TEMP/depot_tools/ensure_bootstrap.py" || true
-          fi
           echo "DEPOT_TOOLS_UPDATE=0" >> "$GITHUB_ENV"
-          which gclient || true
-          gclient --version || true
 
       - name: Fetch Dart source
-        shell: bash
         working-directory: ${{ runner.temp }}
+        shell: bash
         run: |
-          rm -rf dart-checkout
-          mkdir -p dart-checkout
+          mkdir dart-checkout
           cd dart-checkout
 
           fetch dart
           gclient sync
 
       - name: Create source tarball
+        working-directory: ${{ runner.temp }}
         env:
           TAG: ${{ steps.release.outputs.tag }}
         shell: bash
@@ -63,16 +51,23 @@ jobs:
           tar \
             --exclude='.git' \
             --exclude='*/.git' \
-            -czf "$RUNNER_TEMP/dart-source-${TAG}.tar.gz" \
-            -C "$RUNNER_TEMP" dart-checkout
+            -czf "$GITHUB_WORKSPACE/dart-source-${TAG}.tar.gz" \
+            dart-checkout
 
       - name: Generate SHA-256 checksum
         env:
           TAG: ${{ steps.release.outputs.tag }}
+        working-directory: ${{ github.workspace }}
         shell: bash
         run: |
-          sha256sum "$RUNNER_TEMP/dart-source-${TAG}.tar.gz" \
-            > "$RUNNER_TEMP/dart-source-${TAG}.tar.gz.sha256"
+          sha256sum "dart-source-${TAG}.tar.gz" \
+            > "dart-source-${TAG}.tar.gz.sha256"
+
+      - name: Check out repository for tagging
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Create and push release tag
         env:
@@ -80,7 +75,8 @@ jobs:
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git tag "$TAG"
           git push origin "$TAG"
@@ -93,5 +89,5 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            ${{ runner.temp }}/dart-source-${{ steps.release.outputs.tag }}.tar.gz
-            ${{ runner.temp }}/dart-source-${{ steps.release.outputs.tag }}.tar.gz.sha256
+            dart-source-${{ steps.release.outputs.tag }}.tar.gz
+            dart-source-${{ steps.release.outputs.tag }}.tar.gz.sha256
