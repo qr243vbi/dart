@@ -50,15 +50,14 @@ jobs:
           fetch dart
           gclient sync
 
-      - name: Create source tarball
+      - name: Create source tarball (xz, high compression, exclude .git)
         working-directory: ${{ runner.temp }}
         env:
           TAG: ${{ steps.release.outputs.tag }}
         shell: bash
         run: |
-          tar \
-            -czf "$GITHUB_WORKSPACE/dart-source-${TAG}.tar.gz" \
-            dart-checkout
+          # Create a .tar.xz archive with high compression and exclude the .git directory
+          tar --exclude='.git' -cf - dart-checkout | xz -9e -c > "$GITHUB_WORKSPACE/dart-source-${TAG}.tar.xz"
 
       - name: Generate SHA-256 checksum
         env:
@@ -66,8 +65,8 @@ jobs:
         working-directory: ${{ github.workspace }}
         shell: bash
         run: |
-          sha256sum "dart-source-${TAG}.tar.gz" \
-            > "dart-source-${TAG}.tar.gz.sha256"
+          sha256sum "dart-source-${TAG}.tar.xz" \
+            > "dart-source-${TAG}.tar.xz.sha256"
 
       - name: Show workspace files (debug)
         working-directory: ${{ github.workspace }}
@@ -96,5 +95,5 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            dart-source-${{ steps.release.outputs.tag }}.tar.gz
-            dart-source-${{ steps.release.outputs.tag }}.tar.gz.sha256
+            dart-source-${{ steps.release.outputs.tag }}.tar.xz
+            dart-source-${{ steps.release.outputs.tag }}.tar.xz.sha256
