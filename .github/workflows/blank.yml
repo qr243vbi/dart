@@ -57,8 +57,6 @@ jobs:
         shell: bash
         run: |
           tar \
-            --exclude='.git' \
-            --exclude='*/.git' \
             -czf "$GITHUB_WORKSPACE/dart-source-${TAG}.tar.gz" \
             dart-checkout
 
